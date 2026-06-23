@@ -15,7 +15,7 @@ Check commands first:
 Get-Command es, flpidx, flpsearch -ErrorAction SilentlyContinue
 ```
 
-If missing, probe common install paths. Use process-scoped aliases for this session, or call absolute paths directly:
+If missing, probe common install paths. Use temporary aliases for the current PowerShell session, or call absolute paths directly:
 
 ```powershell
 $everythingCli = @(
@@ -29,10 +29,10 @@ $fileLocatorDir = @(
   "${env:ProgramFiles(x86)}\Mythicsoft\FileLocator Pro"
 ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 
-if ($everythingCli) { Set-Alias -Name es -Value $everythingCli -Scope Process }
+if ($everythingCli) { Set-Alias -Name es -Value $everythingCli }
 if ($fileLocatorDir) {
-  Set-Alias -Name flpidx -Value (Join-Path $fileLocatorDir "flpidx.exe") -Scope Process
-  Set-Alias -Name flpsearch -Value (Join-Path $fileLocatorDir "flpsearch.exe") -Scope Process
+  Set-Alias -Name flpidx -Value (Join-Path $fileLocatorDir "flpidx.exe")
+  Set-Alias -Name flpsearch -Value (Join-Path $fileLocatorDir "flpsearch.exe")
 }
 ```
 
@@ -102,12 +102,12 @@ es -n 1 "*"
 
 If it fails, offer to start `Everything.exe`; do not install or reconfigure the service automatically.
 
-For a Codex session, prefer process-scoped aliases. They avoid PATH changes and do not edit the user's profile:
+For a Codex session, prefer temporary aliases in the current PowerShell session. They avoid PATH changes and do not edit the user's profile. Do not use `-Scope Process`; it is not valid for `Set-Alias` in Windows PowerShell.
 
 ```powershell
-Set-Alias -Name es -Value "...\es.exe" -Scope Process
-Set-Alias -Name flpidx -Value "...\flpidx.exe" -Scope Process
-Set-Alias -Name flpsearch -Value "...\flpsearch.exe" -Scope Process
+Set-Alias -Name es -Value "...\es.exe"
+Set-Alias -Name flpidx -Value "...\flpidx.exe"
+Set-Alias -Name flpsearch -Value "...\flpsearch.exe"
 ```
 
 Only add permanent aliases to `$PROFILE` when the user explicitly asks. Prefer aliases over PATH. FileLocator must use aliases, not function wrappers, because flags like `-ofr:files` can be split incorrectly by functions.
