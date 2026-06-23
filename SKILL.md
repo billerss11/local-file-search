@@ -5,7 +5,7 @@ description: Use when Codex needs to quickly locate local Windows files, folders
 
 # Local File Search
 
-Use indexed local search before recursive scans or reading many files. Keep output capped and return only useful candidate paths.
+Use indexed local search before recursive scans or reading many files. Keep output capped and return only useful candidate paths. Do not write search results to files unless the user explicitly asks.
 
 ## Tool Discovery
 
@@ -84,23 +84,22 @@ List indexes first:
 flpidx -list
 ```
 
-Search a chosen index and write results to a file:
+Search a chosen index and print results to stdout:
 
 ```powershell
-$out = Join-Path (Get-Location) "work\flpsearch-results.txt"
-New-Item -ItemType Directory -Path (Split-Path $out) -Force | Out-Null
-flpsearch -idxname "AU Oil and gas Nopims" -c "Nopims" -o $out -oft -ofr:files
-Get-Content -LiteralPath $out -TotalCount 40
+flpsearch -idxname "AU Oil and gas Nopims" -c "Nopims" -oft -ofr:files
 ```
 
 With absolute paths:
 
 ```powershell
 & "$fileLocatorDir\flpidx.exe" -list
-& "$fileLocatorDir\flpsearch.exe" -idxname "AU Oil and gas Nopims" -c "Nopims" -o $out -oft -ofr:files
+& "$fileLocatorDir\flpsearch.exe" -idxname "AU Oil and gas Nopims" -c "Nopims" -oft -ofr:files
 ```
 
 For FileLocator index searches using `-idxname` or `-idxpath`, only `-c` is used as an additional search restriction. Filename, date, and attribute filters are ignored.
+
+Only use `-o`, shell redirection, or any other file output when the user asks to save/export results.
 
 ## Optional Setup
 
