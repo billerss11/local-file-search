@@ -1,0 +1,4 @@
+interface:
+  display_name: "Local File Search"
+  short_description: "Find local files and indexed document contents quickly."
+  default_prompt: "Use $local-file-search to find local files or indexed document contents quickly."
