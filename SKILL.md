@@ -15,7 +15,7 @@ Check commands first:
 Get-Command es, flpidx, flpsearch -ErrorAction SilentlyContinue
 ```
 
-If missing, probe common install paths. Use temporary aliases for the current PowerShell session, or call absolute paths directly:
+If missing, probe known paths. If the user gives a nonstandard FileLocator path, put it in `$knownFileLocatorDir`; otherwise leave it `$null`. Use temporary aliases for the current PowerShell session, or call absolute paths directly:
 
 ```powershell
 $everythingCli = @(
@@ -24,10 +24,32 @@ $everythingCli = @(
   "${env:ProgramFiles(x86)}\Everything\es.exe"
 ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 
+if (-not $everythingCli) {
+  $everythingCli = Get-ChildItem @(
+    "$env:LOCALAPPDATA\Programs\EverythingCLI",
+    "$env:ProgramFiles\Everything",
+    "${env:ProgramFiles(x86)}\Everything"
+  ) -Filter es.exe -Recurse -ErrorAction SilentlyContinue |
+    Select-Object -ExpandProperty FullName -First 1
+}
+
+$knownFileLocatorDir = $null # Set to a user-provided path when available.
 $fileLocatorDir = @(
+  $knownFileLocatorDir,
   "$env:ProgramFiles\Mythicsoft\FileLocator Pro",
   "${env:ProgramFiles(x86)}\Mythicsoft\FileLocator Pro"
-) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+) | Where-Object {
+  $_ -and
+  (Test-Path -LiteralPath (Join-Path $_ "flpidx.exe")) -and
+  (Test-Path -LiteralPath (Join-Path $_ "flpsearch.exe"))
+} | Select-Object -First 1
+
+if (-not $fileLocatorDir -and (Get-Command es -ErrorAction SilentlyContinue)) {
+  $flpsearchPath = es -n 20 flpsearch.exe |
+    Where-Object { $_ -like "*\flpsearch.exe" } |
+    Select-Object -First 1
+  if ($flpsearchPath) { $fileLocatorDir = Split-Path -Parent $flpsearchPath }
+}
 
 if ($everythingCli) { Set-Alias -Name es -Value $everythingCli }
 if ($fileLocatorDir) {
