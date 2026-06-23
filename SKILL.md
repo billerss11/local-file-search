@@ -132,3 +132,9 @@ Set-Alias -Name flpsearch -Value "...\flpsearch.exe"
 ```
 
 Only add permanent aliases to `$PROFILE` when the user explicitly asks. Prefer aliases over PATH. FileLocator must use aliases, not function wrappers, because flags like `-ofr:files` can be split incorrectly by functions.
+
+## Maintenance
+
+Source repository: https://github.com/billerss11/local-file-search
+
+When updating this skill, commit changes in this skill folder and push them to `billerss11/local-file-search` when GitHub access is available.
