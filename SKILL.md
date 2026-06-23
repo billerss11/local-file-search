@@ -15,23 +15,52 @@ Check commands first:
 Get-Command es, flpidx, flpsearch -ErrorAction SilentlyContinue
 ```
 
-If missing, probe known paths. If the user gives a nonstandard FileLocator path, put it in `$knownFileLocatorDir`; otherwise leave it `$null`. Use temporary aliases for the current PowerShell session, or call absolute paths directly:
+If missing, query Windows install registry entries first, then check known paths. If the user gives a nonstandard FileLocator path, put it in `$knownFileLocatorDir`; otherwise leave it `$null`. Use temporary aliases for the current PowerShell session, or call absolute paths directly:
 
 ```powershell
+$uninstallRoots = @(
+  "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
+  "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+  "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
+)
+$installedApps = Get-ItemProperty $uninstallRoots -ErrorAction SilentlyContinue
+
+$everythingInstallDir = $installedApps |
+  Where-Object { $_.DisplayName -match "Everything|voidtools" -and $_.InstallLocation } |
+  Select-Object -ExpandProperty InstallLocation -First 1
+$everythingAppPath = Get-ItemPropertyValue `
+  -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\Everything.exe" `
+  -Name "(default)" -ErrorAction SilentlyContinue
+$everythingAppDir = if ($everythingAppPath) { Split-Path -Parent $everythingAppPath } else { $null }
+
 $everythingCli = @(
-  "$env:LOCALAPPDATA\Programs\EverythingCLI\es.exe",
-  "$env:ProgramFiles\Everything\es.exe",
+  "$env:LOCALAPPDATA\Programs\EverythingCLI\es.exe"
+  "$everythingInstallDir\es.exe"
+  "$everythingAppDir\es.exe"
+  "$env:ProgramFiles\Everything\es.exe"
   "${env:ProgramFiles(x86)}\Everything\es.exe"
 ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 
 if (-not $everythingCli) {
-  $everythingCli = Get-ChildItem @(
-    "$env:LOCALAPPDATA\Programs\EverythingCLI",
-    "$env:ProgramFiles\Everything",
+  $everythingSearchDirs = @(
+    "$env:LOCALAPPDATA\Programs\EverythingCLI"
+    $everythingInstallDir
+    $everythingAppDir
+    "$env:ProgramFiles\Everything"
     "${env:ProgramFiles(x86)}\Everything"
-  ) -Filter es.exe -Recurse -ErrorAction SilentlyContinue |
-    Select-Object -ExpandProperty FullName -First 1
+  ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
+  if ($everythingSearchDirs) {
+    $everythingCli = Get-ChildItem $everythingSearchDirs -Filter es.exe -Recurse -ErrorAction SilentlyContinue |
+      Select-Object -ExpandProperty FullName -First 1
+  }
 }
+
+$fileLocatorInstallDir = $installedApps |
+  Where-Object { $_.DisplayName -match "FileLocator|Mythicsoft|Agent Ransack" -and $_.InstallLocation } |
+  Select-Object -ExpandProperty InstallLocation -First 1
+$fileLocatorAppDir = Get-ItemPropertyValue `
+  -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\FileLocatorPro.exe" `
+  -Name "Path" -ErrorAction SilentlyContinue
 
 $knownFileLocatorDir = $null # Set to a user-provided path when available.
 $fileLocatorDriveDirs = Get-PSDrive -PSProvider FileSystem | ForEach-Object {
@@ -40,6 +69,8 @@ $fileLocatorDriveDirs = Get-PSDrive -PSProvider FileSystem | ForEach-Object {
 }
 $fileLocatorDir = @(
   $knownFileLocatorDir
+  $fileLocatorInstallDir
+  $fileLocatorAppDir
   "$env:ProgramFiles\Mythicsoft\FileLocator Pro"
   "${env:ProgramFiles(x86)}\Mythicsoft\FileLocator Pro"
   $fileLocatorDriveDirs
@@ -49,10 +80,16 @@ $fileLocatorDir = @(
   (Test-Path -LiteralPath (Join-Path $_ "flpsearch.exe"))
 } | Select-Object -First 1
 
-if (-not $fileLocatorDir -and (Get-Command es -ErrorAction SilentlyContinue)) {
-  $flpsearchPath = es -n 20 flpsearch.exe |
-    Where-Object { $_ -like "*\flpsearch.exe" } |
-    Select-Object -First 1
+if (-not $fileLocatorDir) {
+  if (Get-Command es -ErrorAction SilentlyContinue) {
+    $flpsearchPath = es -n 20 flpsearch.exe |
+      Where-Object { $_ -like "*\flpsearch.exe" } |
+      Select-Object -First 1
+  } elseif ($everythingCli) {
+    $flpsearchPath = & $everythingCli -n 20 flpsearch.exe |
+      Where-Object { $_ -like "*\flpsearch.exe" } |
+      Select-Object -First 1
+  }
   if ($flpsearchPath) { $fileLocatorDir = Split-Path -Parent $flpsearchPath }
 }
 
