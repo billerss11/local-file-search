@@ -78,7 +78,7 @@ With absolute paths:
 & "$fileLocatorDir\flpsearch.exe" -idxname "AU Oil and gas Nopims" -c "Nopims" -o $out -oft -ofr:files
 ```
 
-For index searches, FileLocator only uses `-c` to restrict results; filename/date flags are ignored.
+For FileLocator index searches using `-idxname` or `-idxpath`, only `-c` is used as an additional search restriction. Filename, date, and attribute filters are ignored.
 
 ## Optional Setup
 
