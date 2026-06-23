@@ -15,7 +15,7 @@ Check commands first:
 Get-Command es, flpidx, flpsearch -ErrorAction SilentlyContinue
 ```
 
-If missing, probe common install paths and use absolute paths for this session:
+If missing, probe common install paths. Use process-scoped aliases for this session, or call absolute paths directly:
 
 ```powershell
 $everythingCli = @(
@@ -28,6 +28,12 @@ $fileLocatorDir = @(
   "$env:ProgramFiles\Mythicsoft\FileLocator Pro",
   "${env:ProgramFiles(x86)}\Mythicsoft\FileLocator Pro"
 ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+
+if ($everythingCli) { Set-Alias -Name es -Value $everythingCli -Scope Process }
+if ($fileLocatorDir) {
+  Set-Alias -Name flpidx -Value (Join-Path $fileLocatorDir "flpidx.exe") -Scope Process
+  Set-Alias -Name flpsearch -Value (Join-Path $fileLocatorDir "flpsearch.exe") -Scope Process
+}
 ```
 
 Prefer aliases/commands when available. Do not assume user-specific drives.
@@ -96,10 +102,12 @@ es -n 1 "*"
 
 If it fails, offer to start `Everything.exe`; do not install or reconfigure the service automatically.
 
-For persistent PowerShell commands, prefer aliases over PATH. FileLocator must use aliases, not function wrappers, because flags like `-ofr:files` can be split incorrectly by functions:
+For a Codex session, prefer process-scoped aliases. They avoid PATH changes and do not edit the user's profile:
 
 ```powershell
-Set-Alias es "...\es.exe"
-Set-Alias flpidx "...\flpidx.exe"
-Set-Alias flpsearch "...\flpsearch.exe"
+Set-Alias -Name es -Value "...\es.exe" -Scope Process
+Set-Alias -Name flpidx -Value "...\flpidx.exe" -Scope Process
+Set-Alias -Name flpsearch -Value "...\flpsearch.exe" -Scope Process
 ```
+
+Only add permanent aliases to `$PROFILE` when the user explicitly asks. Prefer aliases over PATH. FileLocator must use aliases, not function wrappers, because flags like `-ofr:files` can be split incorrectly by functions.
