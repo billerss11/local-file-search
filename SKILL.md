@@ -34,10 +34,15 @@ if (-not $everythingCli) {
 }
 
 $knownFileLocatorDir = $null # Set to a user-provided path when available.
+$fileLocatorDriveDirs = Get-PSDrive -PSProvider FileSystem | ForEach-Object {
+  Join-Path $_.Root "Program Files\Mythicsoft\FileLocator Pro"
+  Join-Path $_.Root "Program Files (x86)\Mythicsoft\FileLocator Pro"
+}
 $fileLocatorDir = @(
-  $knownFileLocatorDir,
-  "$env:ProgramFiles\Mythicsoft\FileLocator Pro",
+  $knownFileLocatorDir
+  "$env:ProgramFiles\Mythicsoft\FileLocator Pro"
   "${env:ProgramFiles(x86)}\Mythicsoft\FileLocator Pro"
+  $fileLocatorDriveDirs
 ) | Where-Object {
   $_ -and
   (Test-Path -LiteralPath (Join-Path $_ "flpidx.exe")) -and
