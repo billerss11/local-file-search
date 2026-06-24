@@ -13,6 +13,8 @@ Detailed references:
 
 ## Setup
 
+Use PowerShell by default. Avoid `cmd /c` for Everything/FileLocator; paths and queries often contain spaces/quotes. Use `&` with executable variables, and use PowerShell argument arrays when FileLocator arguments contain spaces.
+
 Use the user's fixed install paths first:
 
 ```powershell
@@ -79,12 +81,21 @@ flpsearch -idxname "AU Oil and gas Nopims" -c "pump OR casing" -ofrs:tabulated -
 flpsearch -d "C:\Docs" -f "*.pdf;*.docx" -c "casing" -cee -s -oc -ol 5 -ofrs:tabulated -ofc -ofr:contents
 ```
 
+For FileLocator queries with spaces, use an argument array:
+
+```powershell
+$flpsearch = "J:\Program Files\Mythicsoft\FileLocator Pro\flpsearch.exe"
+$argsList = @("-idxname", "New Group", "-c", "service unit", "-ofrs:tabulated", "-ofc", "-ofr:files")
+& $flpsearch @argsList
+```
+
 Rules:
 - For machine-readable output, prefer `-ofrs:tabulated -ofc`.
 - Use `-oc` only when matching lines are needed.
 - Use `-ol N` to cap content lines.
 - With `-idxname` / `-idxpath`, only `-c` further restricts search.
 - For index path filtering, put `lookin:"C:\Path"` inside `-c`; `-d`, `-f`, date, and attribute filters are ignored.
+- If exact phrase plus another term is unreliable, search the rarer term first, then test candidate files for the exact phrase with `-cee`.
 - Do not rely on `flpsearch -?`; read the bundled reference for uncommon flags.
 
 ## Index Maintenance
