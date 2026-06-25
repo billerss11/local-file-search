@@ -31,6 +31,16 @@ Prefer `& $ES ...` over bare `es`; profile functions may not load in non-interac
 
 Everything must be installed and running; `es.exe` queries it over IPC.
 
+If `es.exe` returns exit code `8` and `$Everything` exists, launch the normal Everything app and retry the original `es.exe` command once:
+
+```powershell
+& $Everything -startup
+Start-Sleep -Seconds 2
+& $ES -n 20 report
+```
+
+If the retry still fails, report that Everything could not be reached. Do not start the Everything service, reindex, update, exit, install tools, or edit profile settings unless the user explicitly asks.
+
 ## Search Syntax
 
 Quote PowerShell metacharacters: `;`, `|`, `&`, `>`, `<`.
@@ -89,6 +99,8 @@ These do not return machine-readable search rows:
 & $Everything -startup
 ```
 
+Run `& $Everything -startup` only to launch the normal Everything app after `es.exe` returns exit code `8`, then retry the original search once.
+
 Do not run these unless explicitly requested:
 
 ```powershell
@@ -115,6 +127,7 @@ File list creation:
 - Do not use JSON on local ES `1.1.0.30`.
 - Do not use `content:` search.
 - Use `Everything.exe` only for GUI/app/service/database actions.
+- If `es.exe` exits with code `8`, run `Everything.exe -startup`, wait briefly, and retry once.
 - Do not use `-instance` unless the named instance is known to be running.
 - `es.exe` does not access Everything bookmarks or filters.
 

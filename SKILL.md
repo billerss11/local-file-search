@@ -45,7 +45,7 @@ es -n 20 es.exe
 es -n 20 flpsearch.exe
 ```
 
-Only download tools, start services, reindex, or edit `$PROFILE` when the user explicitly asks.
+If `es.exe` returns exit code `8` because Everything is not running, and `$everythingExe` exists, start the normal Everything app with `& $everythingExe -startup`, wait briefly, then retry the original `es.exe` command once. If the retry fails, report that Everything could not be reached. Only download tools, start services, reindex, or edit `$PROFILE` when the user explicitly asks.
 
 ## File And Path Search
 
@@ -69,6 +69,7 @@ Rules:
 - Do not use `content:`; use FileLocator for content search.
 - Do not use `-json` / `-export-json` with local ES `1.1.0.30`.
 - Use `Everything.exe` only for GUI/service/database actions, not stdout search rows.
+- If `es.exe` returns exit code `8`, use `Everything.exe -startup` to launch Everything and retry the same capped search once.
 
 ## Content Search
 
