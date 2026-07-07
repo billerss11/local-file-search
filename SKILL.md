@@ -92,12 +92,24 @@ $argsList = @("-idxname", "New Group", "-c", "service unit", "-ofrs:tabulated", 
 
 Rules:
 - For machine-readable output, prefer `-ofrs:tabulated -ofc`.
+- `-ofrs:tabulated -ofc -ofr:files` outputs CSV-like rows, not tab-delimited rows. The header is usually `Name,Location,Modified,Size,Type,Hits`.
+- For filename-only results, parse the `Name` column. For full paths, join `Location` + `Name`.
+- Inspect the first few output rows before writing filters when using a new `flpsearch` output mode.
 - Use `-oc` only when matching lines are needed.
 - Use `-ol N` to cap content lines.
 - With `-idxname` / `-idxpath`, only `-c` further restricts search.
 - For index path filtering, put `lookin:"C:\Path"` inside `-c`; `-d`, `-f`, date, and attribute filters are ignored.
 - If exact phrase plus another term is unreliable, search the rarer term first, then test candidate files for the exact phrase with `-cee`.
 - Do not rely on `flpsearch -?`; read the bundled reference for uncommon flags.
+
+Filename-only PDF example:
+
+```powershell
+& $flpsearch @argsList |
+  Where-Object { $_ -match '^[^,]+\.pdf,' } |
+  ForEach-Object { ($_ -split ',', 2)[0] } |
+  Sort-Object -Unique
+```
 
 ## Index Maintenance
 
