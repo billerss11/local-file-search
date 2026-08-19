@@ -1,11 +1,11 @@
 ---
 name: local-file-search
-description: Use when Codex needs to quickly locate local Windows files, folders, or indexed document contents using Everything CLI (`es`) and FileLocator Pro CLI (`flpidx`, `flpsearch`) instead of slow recursive file reading. Trigger for local file/folder search, finding documents by name/path, listing FileLocator indexes, searching indexed document contents, or setting up these CLIs when missing.
+description: Find local Windows files or folders by filename or path with Everything CLI, and search text inside local documents with FileLocator Pro using indexes or direct folder searches. Do not use for source-code searches within the active workspace; use rg instead.
 ---
 
 # Local File Search
 
-Use indexed search before recursive scans. Keep output capped and return only useful paths. Do not save/export results unless the user asks.
+Prefer an appropriate index when one exists; otherwise scope direct searches to the requested folder. Keep output capped and return only useful paths. Do not save/export results unless the user asks.
 
 Detailed references:
 - Everything CLI: `references/voidtools-everything-cli-quick-reference.md`
@@ -71,9 +71,9 @@ Rules:
 - Use `Everything.exe` only for GUI/service/database actions, not stdout search rows.
 - If `es.exe` returns exit code `8`, use `Everything.exe -startup` to launch Everything and retry the same capped search once.
 
-## Content Search
+## File Content Search
 
-Use FileLocator for indexed document contents. Prefer `flpsearch.exe` for automation.
+Use FileLocator to search text inside local documents. Search an index when it is appropriate; otherwise search a requested folder directly. Prefer `flpsearch.exe` for automation. For source-code searches within the active workspace, use `rg` instead.
 
 ```powershell
 flpidx -list
