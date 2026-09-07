@@ -5,7 +5,7 @@ description: Find local Windows files or folders by filename or path with Everyt
 
 # Local File Search
 
-Prefer an appropriate index when one exists; otherwise scope direct searches to the requested folder. Keep output capped and return only useful paths. Do not save/export results unless the user asks.
+Follow the user's requested search mode. Otherwise prefer an appropriate existing index, or search the requested folder directly when no suitable index is available. Keep output capped and return only useful paths. Do not save/export results unless the user asks.
 
 Detailed references:
 - Everything CLI: `references/voidtools-everything-cli-quick-reference.md`
@@ -73,12 +73,28 @@ Rules:
 
 ## File Content Search
 
-Use FileLocator to search text inside local documents. Search an index when it is appropriate; otherwise search a requested folder directly. Prefer `flpsearch.exe` for automation. For source-code searches within the active workspace, use `rg` instead.
+Use FileLocator to search text inside local documents. Prefer `flpsearch.exe` for automation. For source-code searches within the active workspace, use `rg` instead.
+
+Choose the search mode before running the command:
+
+- **Indexed search:** Use `-idxname` or `-idxpath` when the user requests an existing index, or when a known suitable index covers the requested files. Use `flpidx -list` if you need to discover existing indexes.
+- **Direct search without an index:** If the user asks for a fresh scan, direct folder search, or search without an index, use `-d "C:\Requested\Folder"` and omit both `-idxname` and `-idxpath`. Run this mode even if an index exists. It reads the files directly; no index creation, update, or listing is required.
+- **No suitable index:** Search the requested folder directly. If no folder is known, ask for the search location instead of scanning entire drives. Do not create an index just to perform a search.
+- For direct searches, set `-s` to include subfolders or `-sn` to search only the specified folder, according to the requested scope. Include subfolders by default unless the user says otherwise.
+
+When returning results, briefly state whether the search used an index or scanned a folder directly, and identify the index or folder searched.
+
+Indexed examples:
 
 ```powershell
 flpidx -list
 flpsearch -idxname "AU Oil and gas Nopims" -c "Nopims" -oft -ofr:files
 flpsearch -idxname "AU Oil and gas Nopims" -c "pump OR casing" -ofrs:tabulated -ofc -ofr:files
+```
+
+Direct folder search (no index required):
+
+```powershell
 flpsearch -d "C:\Docs" -f "*.pdf;*.docx" -c "casing" -cee -s -oc -ol 5 -ofrs:tabulated -ofc -ofr:contents
 ```
 
