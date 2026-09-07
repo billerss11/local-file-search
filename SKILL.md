@@ -9,7 +9,7 @@ Follow the user's requested search mode. Otherwise prefer an appropriate existin
 
 Detailed references:
 - Everything CLI: `references/voidtools-everything-cli-quick-reference.md`
-- FileLocator Pro CLI: `references/filelocator-cli-reference.md`
+- FileLocator Pro CLI: `references/filelocator-cli-reference.md` — read for query syntax, index filters, CSV parsing, exclusions, saved searches, or document/OCR troubleshooting.
 
 ## Setup
 
@@ -81,6 +81,7 @@ Choose the search mode before running the command:
 - **Direct search without an index:** If the user asks for a fresh scan, direct folder search, or search without an index, use `-d "C:\Requested\Folder"` and omit both `-idxname` and `-idxpath`. Run this mode even if an index exists. It reads the files directly; no index creation, update, or listing is required.
 - **No suitable index:** Search the requested folder directly. If no folder is known, ask for the search location instead of scanning entire drives. Do not create an index just to perform a search.
 - For direct searches, set `-s` to include subfolders or `-sn` to search only the specified folder, according to the requested scope. Include subfolders by default unless the user says otherwise.
+- Check that explicit local files/folders exist and are accessible before searching. Indexes can be stale or omit terms; use a scoped direct search when current contents or literal punctuation-sensitive text matters, unless the user explicitly limits the search to an index.
 
 When returning results, briefly state whether the search used an index or scanned a folder directly, and identify the index or folder searched.
 
@@ -95,7 +96,7 @@ flpsearch -idxname "AU Oil and gas Nopims" -c "pump OR casing" -ofrs:tabulated -
 Direct folder search (no index required):
 
 ```powershell
-flpsearch -d "C:\Docs" -f "*.pdf;*.docx" -c "casing" -cee -s -oc -ol 5 -ofrs:tabulated -ofc -ofr:contents
+flpsearch -d "C:\Docs" -f "*.pdf;*.docx" -fed -c "casing" -cee -s -oc -ol 5 -ofrs:tabulated -ofc -ofr:contents
 ```
 
 For FileLocator queries with spaces, use an argument array:
@@ -107,25 +108,16 @@ $argsList = @("-idxname", "New Group", "-c", "service unit", "-ofrs:tabulated", 
 ```
 
 Rules:
-- For machine-readable output, prefer `-ofrs:tabulated -ofc`.
-- `-ofrs:tabulated -ofc -ofr:files` outputs CSV-like rows, not tab-delimited rows. The header is usually `Name,Location,Modified,Size,Type,Hits`.
-- For filename-only results, parse the `Name` column. For full paths, join `Location` + `Name`.
-- Inspect the first few output rows before writing filters when using a new `flpsearch` output mode.
-- Use `-oc` only when matching lines are needed.
-- Use `-ol N` to cap content lines.
+- Set expression modes explicitly: `-cee` for literal text, `-ceb` for Boolean, `-cex` for regex, and `-fed` for wildcard file patterns. With Boolean queries, use `-cf` for terms anywhere in a file or `-cfn` for terms on the same line. Use uppercase `AND`, `OR`, and `NOT`.
+- For machine-readable output, prefer `-ofrs:tabulated -ofc -ofr:files`. It produces CSV, not tabs. Strip the preamble/footer and use `ConvertFrom-Csv`; never split rows on commas. Use the tested parsing example in the reference. For full paths, combine `Location` and `Name`.
+- Inspect the actual header when changing report modes; columns and language can depend on settings.
+- Use `-oc -ofr:contents` when matching text is needed. A file-list hit is not proof of body text: indexed searches include names, and direct searches can include names/paths through Character Processing settings. Verify matching body lines before citing content; the reference shows a tested `LINES:1+` Boolean query to exclude the synthetic filename line.
+- `-ol N` limits reported matching lines **per file**, not files searched or total results. Scope the search first and cap displayed file rows separately; label any truncation.
 - With `-idxname` / `-idxpath`, only `-c` further restricts search.
-- For index path filtering, put `lookin:"C:\Path"` inside `-c`; `-d`, `-f`, date, and attribute filters are ignored.
-- If exact phrase plus another term is unreliable, search the rarer term first, then test candidate files for the exact phrase with `-cee`.
+- Put index restrictions inside `-c`, e.g. `pump lookin:"C:\Docs" ext:pdf;docx`. Direct-search flags such as `-d`, `-f`, and date filters are ignored. The reference covers name, date, and size prefixes.
+- If a phrase query behaves unexpectedly, check the echoed criteria for lost quotes, then verify candidate files directly. Missing body lines must not be replaced with inferred document contents.
+- Before reporting no matches, check the searched-item count and completion/error information. A missing location can return zero items with exit code 0. For document/archive/scanned-file misses, check the relevant reader, archive, and OCR settings described in the reference.
 - Do not rely on `flpsearch -?`; read the bundled reference for uncommon flags.
-
-Filename-only PDF example:
-
-```powershell
-& $flpsearch @argsList |
-  Where-Object { $_ -match '^[^,]+\.pdf,' } |
-  ForEach-Object { ($_ -split ',', 2)[0] } |
-  Sort-Object -Unique
-```
 
 ## Index Maintenance
 
