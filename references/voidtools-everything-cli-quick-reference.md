@@ -9,7 +9,7 @@ Tested local setup:
 
 Use `es.exe` for stdout search results. Use `Everything.exe` only for GUI/service/database actions.
 
-## PowerShell Pattern
+## Setup And Recovery
 
 ```powershell
 $ES = "J:\Program Files\Everything\cli\ES-1.1.0.30.x64\es.exe"
@@ -21,13 +21,9 @@ $Everything = "J:\Program Files\Everything\Everything.exe"
 
 Prefer `& $ES ...` over bare `es`; profile functions may not load in non-interactive shells. Do not add the whole Everything folder to PATH.
 
-## Return Model
+Check the fixed paths with `Test-Path -LiteralPath`. If missing, use `Get-Command es, Everything -ErrorAction SilentlyContinue`. If an ES executable is available, locate a missing binary with `& $ES -n 20 es.exe` or `& $ES -n 20 flpsearch.exe`; do not substitute broad drive scans. Optional aliases are `Set-Alias es $ES` and `Set-Alias Everything $Everything`, after verifying each target exists.
 
-- Default stdout: one full path per line.
-- `-csv`, `-tsv`, `-txt`, `-efu`, `-m3u`, `-m3u8` change stdout format.
-- `-export-csv <file>` and similar write files and do not print result rows.
-- Local ES `1.1.0.30` does not support `-json` or `-export-json`; it returns `Error 6: Unknown switch`.
-- Useful observed/doc exit codes: `0` success, `6` unknown switch, `8` Everything not found/running, `9` no results with `-no-result-error`.
+If neither a verified executable nor `Get-Command` provides a usable ES, report that filename search is unavailable and stop that search. Do not retry unchanged discovery commands.
 
 Everything must be installed and running; `es.exe` queries it over IPC.
 
@@ -40,6 +36,16 @@ Start-Sleep -Seconds 2
 ```
 
 If the retry still fails, report that Everything could not be reached. Do not start the Everything service, reindex, update, exit, install tools, or edit profile settings unless the user explicitly asks.
+
+Do not use `-instance` unless the named instance is known to be running.
+
+## Return Model
+
+- Default stdout: one full path per line. Prefer `-csv` or `-tsv` for parsing.
+- `-csv`, `-tsv`, `-txt`, `-efu`, `-m3u`, `-m3u8` change stdout format.
+- `-export-csv <file>` and similar write files and do not print result rows.
+- Local ES `1.1.0.30` does not support `-json` or `-export-json`; it returns `Error 6: Unknown switch`.
+- Useful observed/doc exit codes: `0` success, `6` unknown switch, `8` Everything not found/running, `9` no results with `-no-result-error`.
 
 ## Search Syntax
 
@@ -61,6 +67,8 @@ size:>100mb      # size filter
 Avoid `content:` for this workflow. Use FileLocator for content search.
 
 Keep syntax conservative for Everything `1.4.1.1030`; do not rely on Everything 1.5-only syntax unless tested.
+
+`es.exe` does not access Everything bookmarks or filters.
 
 ## Safe Recipes
 
@@ -99,8 +107,6 @@ These do not return machine-readable search rows:
 & $Everything -startup
 ```
 
-Run `& $Everything -startup` only to launch the normal Everything app after `es.exe` returns exit code `8`, then retry the original search once.
-
 Do not run these unless explicitly requested:
 
 ```powershell
@@ -116,20 +122,6 @@ File list creation:
 ```powershell
 & $Everything -create-file-list "music.efu" "D:\Music" -create-file-list-include-only-files "*.mp3;*.flac"
 ```
-
-## Agent Rules
-
-- Prefer `& $ES`, not bare `es.exe`, unless PATH/profile setup is guaranteed.
-- Do not add the Everything install folder to PATH.
-- Always cap normal searches with `-n <num>`.
-- Quote `ext:pdf;docx` and other semicolon/pipe expressions.
-- Prefer `-csv` or `-tsv` for parseable output.
-- Do not use JSON on local ES `1.1.0.30`.
-- Do not use `content:` search.
-- Use `Everything.exe` only for GUI/app/service/database actions.
-- If `es.exe` exits with code `8`, run `Everything.exe -startup`, wait briefly, and retry once.
-- Do not use `-instance` unless the named instance is known to be running.
-- `es.exe` does not access Everything bookmarks or filters.
 
 Sources:
 - https://www.voidtools.com/support/everything/command_line_interface/

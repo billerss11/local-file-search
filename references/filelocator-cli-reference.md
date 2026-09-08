@@ -15,7 +15,23 @@ Use PowerShell by default. Avoid `cmd /c`; paths and queries often contain space
 
 Do not assume `FileLocatorLite.exe` or `AgentRansack.exe` exist unless discovered.
 
-## PowerShell Pattern
+## Setup And Recovery
+
+Use the fixed install folder first. The optional aliases below make the short commands in this reference runnable; direct executable paths also work.
+
+```powershell
+$flpDir = 'J:\Program Files\Mythicsoft\FileLocator Pro'
+foreach ($toolName in 'flpsearch', 'flpidx', 'FileLocatorPro', 'IndexManager') {
+  $toolPath = Join-Path $flpDir ($toolName + '.exe')
+  if (Test-Path -LiteralPath $toolPath) { Set-Alias -Name $toolName -Value $toolPath }
+}
+```
+
+If missing, use `Get-Command flpsearch, flpidx, FileLocatorPro, IndexManager -ErrorAction SilentlyContinue`; if still unavailable, locate `flpsearch.exe` through Everything with `-n 20`. Use **Setup And Recovery** in the Everything reference if that tool is unavailable. Do not scan entire drives or install tools automatically. If license/setup UI blocks the first search, complete the app's setup before automation.
+
+If discovery still finds no usable executable, report which tool is unavailable and stop the dependent search. Do not retry unchanged discovery commands.
+
+### PowerShell Pattern
 
 ```powershell
 $flpsearch = "J:\Program Files\Mythicsoft\FileLocator Pro\flpsearch.exe"
@@ -85,6 +101,18 @@ flpsearch -d "C:\Docs;D:\Reports;!C:\Docs\Archive" -f "*.pdf;*.docx" -fed -c "pu
 
 An entry beginning with `!` excludes a specific location. Folder filters such as `-.svn` exclude matching folder names. An existing newline-separated location list can be passed as `-d "=C:\Lists\locations.txt"`. Do not broaden the user's scope with drive-wide macros.
 
+For a literal semicolon inside a file/folder name, pass double quotes through to FileLocator. PowerShell's outer quotes only group the argument and are not enough: `-d "C:\Docs\2026;final"` is interpreted as two locations. The following form was tested with PowerShell 7.6.5 and FileLocator 9.1.3389.1:
+
+```powershell
+flpsearch -d '"C:\Docs\2026;final"' -c "pump" -cee -s -ofrs:tabulated -ofc -ofr:files
+
+# Preserve the same inner double quotes in an argument array.
+$argsList = @('-d', '"C:\Docs\2026;final"', '-c', 'pump', '-cee', '-s', '-ofrs:tabulated', '-ofc', '-ofr:files')
+& $flpsearch @argsList
+```
+
+Do not quote a genuine multi-location list as a single literal path; its separating semicolons must remain outside individual quoted paths.
+
 ### Verify Body Text
 
 Character Processing settings can include file names or paths in content searches. In the local check, a file named `pump casing.txt` with unrelated body text appeared in the file report with a hit, but had no matching rows in the contents report. Therefore, inspect body lines before saying a document contains the query.
@@ -120,6 +148,7 @@ Useful output flags:
 | `-ofx` | XML output. Locally confirmed; console text surrounds the XML document. |
 | `-ofb` / `-ofbs` | Tab / spreadsheet-style tab output. `-ofc` is CSV regardless of report style. |
 | `-ofh` | HTML output. |
+| `-oft` | Plain text output (default). |
 | `-oe8` / `-oe8nb` | UTF-8 output with / without BOM, useful for requested exports. |
 | `-o "out.csv"` | Write file; do not use unless user asks to save/export. |
 | `-oa` | Append to the requested output file. |
@@ -184,12 +213,13 @@ flpsearch -idxname "Files" -c 'pump lookin:"C:\Docs" ext:pdf;docx' -ofrs:tabulat
 
 Index matching differs from direct matching: `fine` matches word starts; `*fine` allows mid-word matches; `"fine"` matches the whole word; `"fine day"` matches a phrase. Unprefixed terms search names and indexed contents. Confirm returned paths satisfy the requested folder boundary, especially for similarly named folders.
 
-An index may omit common words, punctuation-heavy tokens, unsupported content, or recent changes. No index hits do not prove absence from current files. If appropriate to the request, verify a scoped set of candidates directly; do not silently rebuild or update an index.
+An index may omit common words, punctuation-heavy tokens, unsupported content, or recent changes. If this prevents answering the request, scan the requested folder directly with `-d` and no index flags; ask for the folder if unknown. For index-only requests, report the coverage limitation. Do not silently rebuild or update an index, or claim that no index hits proves absence from current files.
 
-## Non-Indexed Search
+For that fallback, do not copy index prefixes into the direct `-c` text. Map `lookin:` to `-d`, name/extension restrictions to `-f -fed`, and modified-date bounds to `-ma`/`-mb`; preserve other restrictions by checking returned file metadata. Select `-cee` for literal text or `-ceb` with explicit file/line scope for Boolean text.
+
+## Additional Direct-Search Examples
 
 ```powershell
-flpsearch -d "C:\Docs" -f "*.pdf;*.docx" -fed -c "service unit" -cee -s -ofrs:tabulated -ofc -ofr:files
 flpsearch -d "C:\Logs" -f "*.log" -fed -c "ERROR|WARN" -cex -rep -s
 flpsearch -d "C:\Data" -f "*.xlsx" -fed -ma "today -1 week" -mb "now" -s -ofrs:tabulated -ofc -ofr:files
 ```
@@ -204,7 +234,7 @@ flpsearch "C:\Searches\Reports.srf" -po -d "C:\Docs" -c "pump" -cee -s -ofrs:tab
 
 Inspect the loaded criteria for unexpected scope or filters. `.srf` stores criteria; `.flsx` stores a session including results/history. `-pc` also replaces the current configuration with that stored in the criteria file, so do not add it merely to load a search. Use it only when restoring that configuration is part of the request.
 
-When expected document content is missing, check the relevant settings rather than guessing undocumented flags:
+Before searches involving the formats below, verify their processing settings from the current configuration or a known-content probe. Do not assume a format is enabled because the executable is installed. When expected content is missing, check these settings rather than guessing undocumented flags:
 
 - **Office/PDF:** Enhanced file searching and document readers must be enabled. Text Search searches extracted text; Deep Search also tries raw data when extracted text does not match. A raw-data hit can be metadata rather than visible body text.
 - **Archives:** Activated formats are traversed as virtual folders, e.g. `archive.zip\folder\report.txt`. Preserve the container/member path in results; it is not necessarily a standalone disk file.
@@ -212,9 +242,11 @@ When expected document content is missing, check the relevant settings rather th
 - **Scans/images:** OCR must be enabled with suitable formats/languages. OCR text caching can accelerate repeat searches; existing text PDFs can skip OCR. Do not claim an image-only file was searched successfully just because the file was enumerated.
 - **Coverage:** Persistent location filters, binary exclusions, reader failures, and character processing can change results. Inspect errors/settings when the observed results conflict with known content. Do not silently alter persistent configuration.
 
+If required processing is disabled, report the affected formats as unsearched. If the user has authorized enabling it, enable the relevant option and rerun a known-content probe before repeating the requested search; otherwise explain the needed setting. For direct searches: enable ZIP in **Compressed Files**; enable **Options → OCR Images**, then choose formats/language under **OCR...**. Verify that `flpsearch -d` returns the expected body text. These settings do not create an index; existing indexes have separate processing settings. Do not repeat the same disabled search and report its empty output as no matches.
+
 ## Index Maintenance
 
-Read carefully before destructive operations.
+Read carefully before destructive operations. Use `flpidx.exe` for console maintenance, or `IndexManager.exe -exec` to avoid a console popup.
 
 ```powershell
 flpidx -list
@@ -229,19 +261,6 @@ IndexManager -exec -name "Docs" -update
 Only create, update, recreate, remove, or delete indexes when the user requests the maintenance operation. Ordinary searches do not require index creation. For creation, `-i` starts indexing immediately. `-remove` drops the configured reference; adding `-delete` also deletes stored index files. Confirm the intended index name/path from the list before maintenance.
 
 Flags are executable-specific: `flpsearch -cf` means Boolean matching across a file, while `flpidx -cf` enables case-sensitive index searching. Do not copy search flags into index maintenance commands.
-
-## Agent Rules
-
-- Prefer `flpsearch.exe` for unattended search.
-- Prefer `flpidx.exe` / `IndexManager.exe -exec` for index maintenance.
-- Prefer PowerShell argument arrays for queries with spaces or quotes.
-- Prefer `-ofrs:tabulated -ofc` for parsing.
-- Use `-oc` only when matching lines are needed.
-- Use `-ol N` to cap matching lines per file; separately cap displayed file rows.
-- Quote Windows paths.
-- Use semicolons for multiple paths/patterns.
-- Inspect stdout and search counts; exit code 0 alone does not establish successful coverage.
-- If first run triggers license/setup UI, configure FileLocator Pro before automation.
 
 Sources:
 - https://help.mythicsoft.com/filelocatorpro/en/commandline.htm
