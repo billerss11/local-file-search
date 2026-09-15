@@ -4,6 +4,8 @@ Scope: FileLocator Pro 9.1.x with `flpsearch.exe`, `flpidx.exe`, `FileLocatorPro
 
 Use PowerShell by default. Avoid `cmd /c`; paths and queries often contain spaces/quotes.
 
+The raw CLI examples below explain search flags. For ordinary searches, use **Bounded Preview** and pass only their search arguments to the helper; it supplies output flags and prevents unbounded terminal output. Use raw export commands only for requested exports or tightly scoped format diagnostics.
+
 ## Binaries
 
 | Command | Use |
@@ -127,10 +129,10 @@ This was locally checked with separate-line terms and a filename-only false matc
 
 ## Output
 
-Prefer machine-readable output:
+The preview helper uses this machine-readable report format internally:
 
 ```powershell
-flpsearch -d "C:\Docs" -f "*.pdf;*.docx" -fed -c "casing" -cee -s -ofrs:tabulated -ofc -ofr:files
+flpsearch -d "C:\Docs" -f "*.pdf;*.docx" -fed -c "casing" -cee -s -oc -ol 3 -ofrs:tabulated -ofc -ofr:contents -oe8nb
 ```
 
 Useful output flags:
@@ -155,34 +157,40 @@ Useful output flags:
 
 Use file reports for discovery and content reports for evidence. Reported hit counts may include filename matches and may depend on hit-count settings; they are not automatically document/body-occurrence counts.
 
-### Parse File-List CSV
+### Bounded Preview
 
-Console output includes a banner, criteria/statistics, the CSV table, and a `Finished ...` footer. CSV quotes names containing commas; never use `-split ','`. This example is for the locally observed English file-list report, not multiline contents CSV:
+Use the skill's `scripts/filelocator_preview.py` instead of printing raw search output. It parses FileLocator's English tabulated CSV, including quoted commas and multiline text, as it arrives. No temporary result files, exports, caches, new packages, or persistent background process are needed. It retains only the bounded preview and short status fields, drains omitted output to completion, and also drains stderr. This limits what reaches the agent, not the number of files FileLocator searches or its internal resource use.
 
 ```powershell
-# $argsList must select -ofrs:tabulated -ofc -ofr:files.
-$raw = @(& $flpsearch @argsList)
-$header = $raw | Select-String -Pattern '^Name,Location,' | Select-Object -First 1
-if (-not $header) {
-  throw 'File-list CSV header missing; inspect output for errors, localization, or changed columns.'
-}
-$csvLines = for ($i = $header.LineNumber - 1; $i -lt $raw.Count; $i++) {
-  if ($raw[$i] -match '^Finished [^,]*$') { break }
-  if (-not [string]::IsNullOrWhiteSpace($raw[$i])) { $raw[$i] }
-}
-$files = @($csvLines | ConvertFrom-Csv)
+$python = 'J:\Pythonenvs\codex_env\python.exe'
+$preview = 'C:\Users\17999\.codex\skills\local-file-search\scripts\filelocator_preview.py'
+$searchArgs = @('-d', 'C:\Docs', '-f', '*.pdf;*.docx', '-fed', '-c', 'pump', '-cee', '-s')
 
-# Filename-only PDF results; state the displayed count if truncated.
-$files | Where-Object { $_.Name -like '*.pdf' } |
-  Select-Object -First 50 -ExpandProperty Name
+# Default: up to 10 files, 3 matching lines per file, 12,000 total characters.
+& $python -B $preview -- @searchArgs
 
-# Or full paths, preserving files with identical names in different folders.
-$files | Select-Object -First 50 | ForEach-Object {
-  [System.IO.Path]::Combine($_.Location, $_.Name)
-}
+# File paths only when body text is unnecessary.
+& $python -B $preview --report files -- @searchArgs
+
+# More matching lines from a selected file, still within the total text limit.
+& $python -B $preview --lines-per-file 12 -- -d 'C:\Docs\report.pdf' -c 'pump' -cee
 ```
 
-Inspect the search statistics separately before treating an empty table as no matches. The local CLI returned exit code 0 and an empty errors report for a nonexistent folder; validate the location and searched-item count. A missing header or unreadable location is not a successful zero-result search.
+Override the executable with `--executable <path>` when necessary. `--max-files`, `--lines-per-file`, and `--max-chars` adjust the preview; the character limit includes the whole JSON output and must be at least 4096. Pass these options before `--`; all FileLocator search arguments follow it. Do not pass FileLocator output flags (`-o...`); the helper controls output and rejects file export flags.
+
+Interpret the output:
+
+- `complete` requires a recognized report header, completed status, a finish marker, exit code 0, and no detected errors. The helper exits 2 for incomplete/unverified searches; inspect its bounded diagnostics instead of treating failure as no matches.
+- `statistics` preserves FileLocator's reported found/searched counts and status. `Found` can include filename/path candidates with no body rows. Do not relabel it as a count of documents with verified matching body text.
+- `files[].matches` contains directly usable extracted text with line positions, not page/paragraph numbers. Missing or line-0 body text is not verified evidence. Use the passages immediately when sufficient; re-read only for missing context, full-document tasks, or layout/table interpretation.
+- `preview_limited` marks omitted files/rows or shortened text; `text_truncated` marks a shortened passage. The per-file line limit always applies even if no further truncation is detected. These are first-returned results, not relevance rankings.
+- The helper deliberately retains no omitted results. Narrow/repeat the search or raise the limits when more evidence or exhaustive coverage is required. Do not create temporary files to enable paging.
+
+Validate direct-search locations before invoking the helper. FileLocator can return exit code 0 and an empty errors report for a nonexistent folder. Zero searched items means no eligible files were searched, not proof of absence. Unexpected/localized columns or an oversized CSV field cause a reported parse failure, not a silent raw-output fallback.
+
+### Parse File-List CSV
+
+For ordinary searches, use the helper's `--report files` mode above. When processing a user-requested CSV export, strip the console banner/criteria/statistics and `Finished ...` footer, inspect the actual header, then use a CSV parser (`ConvertFrom-Csv` for single-line file lists). Never split on commas. Combine `Location` and `Name` for full paths; filenames can contain commas and quoted text, and contents reports can contain multiline fields.
 
 For XML, extract the complete XML document from the console wrapper and parse its `rslt` namespace. For specialized exports, `-ofxslt` accepts a transform; the installed `Sample Transforms` folder includes `fullname_only.xsl`, `hits_only.xsl`, and `unique_hits_only.xsl`. Use these only when that output is requested, and inspect a sample before relying on its format.
 

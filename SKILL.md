@@ -29,33 +29,37 @@ Check the relevant executable before use. If missing, follow **Setup And Recover
 ### File And Path Search
 
 ```powershell
-& $ES -n 20 -path 'D:\Docs' report 'ext:pdf;docx'
+& $ES -n 10 -path 'D:\Docs' report 'ext:pdf;docx'
 ```
 
-`-path` includes descendants; `-parent` searches only the immediate folder. Always cap normal results with `-n`. Use FileLocator for contents, not Everything `content:`. Local ES 1.1.0.30 has no `-json`/`-export-json`.
+`-path` includes descendants; `-parent` searches only the immediate folder. Default to `-n 10`; if the cap is reached, say more files may exist or obtain the count using **Safe Recipes**. Use FileLocator for contents, not Everything `content:`. Local ES 1.1.0.30 has no `-json`/`-export-json`.
 
 In the [Everything reference](references/voidtools-everything-cli-quick-reference.md), follow **Setup And Recovery** if the executable is missing or returns exit code 8. Before adding query operators, read **Search Syntax**; before sorting/counting/paging, read **Safe Recipes**; before parsing/exporting, read **Return Model**; before GUI actions, read **Everything.exe**.
 
 ### File Content Search
 
-Direct search (no index):
+Use [scripts/filelocator_preview.py](scripts/filelocator_preview.py) for ordinary searches. It streams results without saving files and prints a bounded JSON preview: **10 files, 3 matching lines per file, 12,000 total characters** by default. It continues reading to completion while discarding omitted results, preserving search statistics and errors. Do not print raw unbounded CLI output or capture the entire report in a variable first.
+
+Direct search (no index; use the actual installed skill location):
 
 ```powershell
-$argsList = @('-d', 'C:\Docs', '-f', '*.pdf;*.docx', '-fed', '-c', 'service unit', '-cee', '-s', '-ofrs:tabulated', '-ofc', '-ofr:files')
-& $flpsearch @argsList
+$python = 'J:\Pythonenvs\codex_env\python.exe'
+$preview = 'C:\Users\17999\.codex\skills\local-file-search\scripts\filelocator_preview.py'
+$argsList = @('-d', 'C:\Docs', '-f', '*.pdf;*.docx', '-fed', '-c', 'service unit', '-cee', '-s')
+& $python -B $preview --executable $flpsearch -- @argsList
 ```
 
 Indexed search:
 
 ```powershell
-& $flpsearch -idxname 'Index Name' -c 'pump lookin:"C:\Docs" ext:pdf;docx' -ofrs:tabulated -ofc -ofr:files
+& $python -B $preview --executable $flpsearch -- -idxname 'Index Name' -c 'pump lookin:"C:\Docs" ext:pdf;docx'
 ```
 
 - Direct search includes subfolders with `-s` by default; use `-sn` when excluded. Set query modes explicitly: `-cee` literal, `-ceb` Boolean, `-cex` regex; `-fed` for wildcard filenames. Boolean operators are uppercase; `-cf` matches across the file, `-cfn` on one line.
 - **Literal semicolon in a path:** pass inner quotes: `-d '"C:\Docs\2026;final"'`. Ordinary shell quoting alone is insufficient. For genuine multiple locations, semicolons remain outside each quoted path.
 - **Index queries:** before constructing one, read **Indexed Search**. Put restrictions inside `-c`; `-d`, `-f`, dates, and attribute flags are ignored. Copy the case-sensitive index name from the index list.
-- **CSV:** before parsing, read and use **Parse File-List CSV**. Select `-ofrs:tabulated -ofc`, inspect the actual header, strip console wrappers, and use `ConvertFrom-Csv`, never comma splitting. Return `Name` alone or combine `Location` and `Name` for full paths.
-- **Content evidence:** before citing body text, read and follow **Verify Body Text**; request `-oc -ofr:contents -ol 5`. File-list hits may come from names/paths. If echoed criteria lost quotes, correct the quoting and verify the phrase directly in candidate files.
+- **Preview options:** read **Bounded Preview** in the FileLocator reference for file-list mode, larger previews, and result interpretation. The helper needs only Python's standard library; prefer `codex_env`. Pass search arguments after `--`; the helper supplies output flags itself.
+- **Content evidence:** read **Verify Body Text** before citing body text. Use the returned positive-numbered matching lines directly when sufficient; do not reopen/re-extract a document just to read the same passage. File-list hits may come from names/paths. If echoed criteria lost quotes, correct the quoting and verify the phrase directly in candidate files.
 
 The named sections are in the [FileLocator reference](references/filelocator-cli-reference.md). Before advanced queries/exclusions, read **Direct Query And Location Patterns** and **Search Flags**; before changing report formats, read **Output**; before saved-search reuse or ZIP/Office/PDF/email/OCR searches, read **Saved Searches And Document Processing**; before index changes, read **Index Maintenance**. Use the reference for unknown flags, not `flpsearch -?`. Load only sections triggered by the task, not both references routinely.
 
@@ -69,6 +73,10 @@ After each search:
 
 ## Return Results
 
-State the search mode and index/folder searched. Return useful paths and requested evidence; cap displayed file rows and label truncation. `-ol N` limits matching lines reported **per file**, not files searched or total results. Save/export results only when requested.
+State the search mode and index/folder searched. Return useful paths with matching passages when searching contents. Distinguish a limited preview from an incomplete search; report omissions and never treat the first files as relevance-ranked or exhaustive. `-ol N` limits matching lines reported **per file**, not files searched or total results.
+
+Answer from the returned passages when sufficient. For missing context, narrow the search to selected files and adjust the preview limits, or use a document reader when full text, tables, or layout are required. Omitted results are not retained after the helper exits, so further retrieval requires another search. Do not silently stop at the preview when the user requested exhaustive results.
+
+Create no temporary result files, result caches, or automatic exports. Save/export results only when the user requests it. The limits apply before output reaches the agent, not only to the final chat reply.
 
 Source repository: https://github.com/billerss11/local-file-search
