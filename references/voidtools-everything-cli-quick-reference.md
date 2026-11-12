@@ -3,13 +3,15 @@
 Tested local setup:
 
 - ES CLI: `1.1.0.30`
-- Everything: `1.4.1.1030`
+- Everything: `1.5.0.1417` (IPC version verified on 2026-11-12)
 - ES path: `J:\Program Files\Everything\cli\ES-1.1.0.30.x64\es.exe`
 - Everything path: `J:\Program Files\Everything\Everything.exe`
 
 Use `es.exe` for stdout search results. Use `Everything.exe` only for GUI/service/database actions.
 
 ## Setup And Recovery
+
+Use the **Execution Environment** in `../SKILL.md` for every CLI invocation below: request outside-sandbox execution from the first attempt. On this machine, `es.exe` failed to launch inside the sandbox with a Windows DLL relocation error and worked outside it. That startup error does not establish a damaged index or a missing installation.
 
 ```powershell
 $ES = "J:\Program Files\Everything\cli\ES-1.1.0.30.x64\es.exe"
@@ -30,12 +32,12 @@ Everything must be installed and running; `es.exe` queries it over IPC.
 If `es.exe` returns exit code `8` and `$Everything` exists, launch the normal Everything app and retry the original `es.exe` command once:
 
 ```powershell
-& $Everything -startup
+Start-Process -FilePath $Everything -ArgumentList '-startup' -WindowStyle Hidden
 Start-Sleep -Seconds 2
 & $ES -n 20 report
 ```
 
-If the retry still fails, report that Everything could not be reached. Do not start the Everything service, reindex, update, exit, install tools, or edit profile settings unless the user explicitly asks.
+Initial database loading can take longer than the two-second pause. If the retry is still running, keep collecting that same query's output; do not repeatedly launch Everything or describe a pending query as a failure. If it ends with an IPC/startup error, report the observed error and stop. Do not start the Everything service, reindex, update, exit, install tools, or edit profile settings unless the user explicitly asks.
 
 Do not use `-instance` unless the named instance is known to be running.
 
@@ -66,7 +68,7 @@ size:>100mb      # size filter
 
 Avoid `content:` for this workflow. Use FileLocator for content search.
 
-Keep syntax conservative for Everything `1.4.1.1030`; do not rely on Everything 1.5-only syntax unless tested.
+Keep syntax conservative and verify version-specific features before relying on them. The CLI version and Everything application version are separate.
 
 `es.exe` does not access Everything bookmarks or filters.
 

@@ -19,6 +19,8 @@ Do not assume `FileLocatorLite.exe` or `AgentRansack.exe` exist unless discovere
 
 ## Setup And Recovery
 
+Follow **Execution Environment** in `../SKILL.md`: launch search tools and read-only index listing outside the Codex sandbox from the first attempt. For bounded previews, apply that mode to the entire `codex_env` Python invocation, including its FileLocator child. A startup or access error from an existing binary does not mean the executable is missing; first verify the actual execution mode.
+
 Use the fixed install folder first. The optional aliases below make the short commands in this reference runnable; direct executable paths also work.
 
 ```powershell
@@ -158,6 +160,8 @@ Useful output flags:
 Use file reports for discovery and content reports for evidence. Reported hit counts may include filename matches and may depend on hit-count settings; they are not automatically document/body-occurrence counts.
 
 ### Bounded Preview
+
+The helper inherits its execution environment and launches `flpsearch.exe` without changing permissions. Run its parent Python process outside the sandbox; the helper is not an escape mechanism. It has no built-in search timeout and prints JSON only after draining the search output. A tool-call wait ending with a running session is not a completed or failed search: keep collecting that session. Report a cancelled or interrupted search as incomplete.
 
 Use the skill's `scripts/filelocator_preview.py` instead of printing raw search output. It parses FileLocator's English tabulated CSV, including quoted commas and multiline text, as it arrives. No temporary result files, exports, caches, new packages, or persistent background process are needed. It retains only the bounded preview and short status fields, drains omitted output to completion, and also drains stderr. This limits what reaches the agent, not the number of files FileLocator searches or its internal resource use.
 

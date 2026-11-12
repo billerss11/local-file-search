@@ -16,6 +16,18 @@ Before a direct search, run `Test-Path -LiteralPath` on each requested location;
 
 ## Run The Tools
 
+### Execution Environment
+
+On this Windows installation, launch the search tools outside the Codex sandbox from the first attempt. This applies to Everything `es.exe`, normal `Everything.exe -startup` recovery, FileLocator `flpsearch.exe`, read-only `flpidx.exe -list`, and their CLI/API/IPC clients. Filesystem existence checks and reading skill documentation can remain sandboxed.
+
+- With `exec_command`, set `sandbox_permissions: "require_escalated"` on the tool-launch call. Use the execution interface's approval mechanism; this skill does not grant permissions or require administrator/UAC elevation. If outside execution is forbidden or denied, report that restriction and stop the dependent search.
+- Launch the whole FileLocator Python preview command outside the sandbox so its `flpsearch.exe` child inherits that environment. Starting Python inside the sandbox and spawning a child does not move the child outside it.
+- Prefer a single invocation with literal executable/helper paths when using command allow rules. Variable assignments, pipelines, compound scripts, and shell wrappers may prevent a narrow rule from matching; still request the approved outside execution mode. Do not allow a general PowerShell shell or Python interpreter merely to run this skill.
+- The local persistent FileLocator rule matches only `python.exe -B <preview> --executable <installed flpsearch.exe> -- <search arguments>`. Keep that order for ordinary previews. Additional helper options, raw CLI diagnostics, index listing, and app startup still use the approved outside execution mode and may need their own approval.
+- If a tool was accidentally launched inside the sandbox and failed with DLL relocation, access, or IPC errors, correct the execution mode and retry once before declaring it unavailable. Do not replace a CLI/API search with Computer Use unless the user explicitly requests UI operation.
+
+Codex command rules can persist approval for matching commands, but active host or managed policies may still restrict execution. Do not change global sandbox settings, services, or rules as part of an ordinary search. Downloads, setup/configuration changes, and index maintenance keep their existing authorization requirements.
+
 Use PowerShell, `&` with executable paths, and argument arrays for paths/queries containing spaces or quotes. Avoid `cmd /c`. Quote shell metacharacters (`;`, `|`, `&`, `>`, `<`); retain literal double quotes inside single-quoted PowerShell strings.
 
 ```powershell
@@ -24,7 +36,7 @@ $flpDir = 'J:\Program Files\Mythicsoft\FileLocator Pro'
 $flpsearch = Join-Path $flpDir 'flpsearch.exe'
 ```
 
-Check the relevant executable before use. If missing, follow **Setup And Recovery** in the appropriate reference below; do not start broad binary scans. Downloads, service/configuration/profile changes, and index maintenance require the user's request. Starting the normal Everything app after exit code 8 is the documented exception.
+Check the relevant executable before use. Distinguish a missing file from failure to start an existing program. If missing, follow **Setup And Recovery** in the appropriate reference below; do not start broad binary scans. Downloads, service/configuration/profile changes, and index maintenance require the user's request. Starting the normal Everything app after exit code 8 is the documented exception.
 
 ### File And Path Search
 
@@ -66,7 +78,7 @@ The named sections are in the [FileLocator reference](references/filelocator-cli
 ## Verify And Recover
 
 After each search:
-1. Check exit status and reported completion/errors. For FileLocator, exit code 0 alone is insufficient. Label interrupted or partially failed results as incomplete; use `-ofr:errors` when failures need diagnosis.
+1. Check exit status and reported completion/errors. If the execution tool returns a running session, continue collecting its output; a wait interval ending or no early output does not prove the search tool is unavailable. The FileLocator preview prints its JSON after the search finishes. Label interrupted or partially failed results as incomplete. For FileLocator, exit code 0 alone is insufficient; use `-ofr:errors` when failures need diagnosis.
 2. Check echoed scope/filters and searched-item counts when reported. If zero files were searched, verify location and filters; report "no eligible files searched" when valid, not absence of text from unsearched files.
 3. Check returned paths against the requested scope. For content claims, verify actual matching body lines; label unverifiable hits as candidates.
 4. If an index misses known/current content or is stale, follow the **Indexed Search** fallback to search the requested folder directly, preserving text intent and filters. If no folder is known, ask for it. For index-only requests, report the limitation instead. Do not update/rebuild unless requested.
