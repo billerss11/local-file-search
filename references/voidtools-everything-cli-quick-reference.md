@@ -44,6 +44,7 @@ Do not use `-instance` unless the named instance is known to be running.
 ## Return Model
 
 - Default stdout: one full path per line. Prefer `-csv` or `-tsv` for parsing.
+- On the tested Windows setup, redirected ES output uses the system ANSI encoding and can replace characters outside that code page with `?` or other substitutions. CSV does not fix this. If a returned path fails to resolve, check the original through Listary JSON or a scoped filesystem listing before treating it as stale or missing; do not guess replacements.
 - `-csv`, `-tsv`, `-txt`, `-efu`, `-m3u`, `-m3u8` change stdout format.
 - `-export-csv <file>` and similar write files and do not print result rows.
 - Local ES `1.1.0.30` does not support `-json` or `-export-json`; it returns `Error 6: Unknown switch`.

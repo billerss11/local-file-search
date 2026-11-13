@@ -1,16 +1,16 @@
 ---
 name: local-file-search
-description: Find local Windows files or folders by filename or path with Everything CLI, and search text inside local documents with FileLocator Pro using indexes or direct folder searches. Do not use for source-code searches within the active workspace; use rg instead.
+description: Find local Windows files or folders by filename or path with Listary first and Everything as a fallback, and search text inside local documents with FileLocator Pro using indexes or direct folder searches. Do not use for source-code searches within the active workspace; use rg instead.
 ---
 
 # Local File Search
 
 ## Choose The Search
 
-- **Names/paths:** Everything `es.exe`. For source code within the active workspace, use `rg` instead.
+- **Names/paths:** Listary local HTTP API first. Use Everything `es.exe` when the API is unavailable, coverage is suspect, or the task needs regex, explicit sorting, or a more efficient bulk query. Honor an explicit tool choice. For source code within the active workspace, use `rg` instead.
 - **Document contents:** FileLocator `flpsearch.exe`. Honor the user's requested mode.
-- **Direct/fresh/no-index request:** Use `-d` and omit `-idxname`/`-idxpath`, even if an index exists. No index creation, update, or listing is needed.
-- **Otherwise:** Use a known suitable existing index, or scan the requested folder directly. Discover indexes with `flpidx -list` when needed. Indexes can be stale or omit terms; prefer direct search for current contents or punctuation-sensitive literal text unless the user limits the task to an index.
+- **Document contents, direct/fresh/no-index request:** Use `-d` and omit `-idxname`/`-idxpath`, even if an index exists. No index creation, update, or listing is needed.
+- **Other document-content searches:** Use a known suitable existing index, or scan the requested folder directly. Discover indexes with `flpidx -list` when needed. Indexes can be stale or omit terms; prefer direct search for current contents or punctuation-sensitive literal text unless the user limits the task to an index.
 
 Before a direct search, run `Test-Path -LiteralPath` on each requested location; report missing/inaccessible locations instead of treating them as zero matches. If scope is unknown, ask for a location rather than scanning entire drives. Do not create an index for an ordinary search.
 
@@ -18,7 +18,7 @@ Before a direct search, run `Test-Path -LiteralPath` on each requested location;
 
 ### Execution Environment
 
-On Windows, launch the search tools outside the Codex sandbox from the first attempt. This applies to Everything `es.exe`, normal `Everything.exe -startup` recovery, FileLocator `flpsearch.exe`, read-only `flpidx.exe -list`, and their CLI/API/IPC clients. Filesystem existence checks and reading skill documentation can remain sandboxed. On another computer, discover its executable paths instead of assuming the installation paths below.
+On Windows, launch the search tools outside the Codex sandbox from the first attempt. This applies to the Listary HTTP client/helper, Everything `es.exe`, normal `Everything.exe -startup` recovery, FileLocator `flpsearch.exe`, read-only `flpidx.exe -list`, and their CLI/API/IPC clients. Filesystem existence checks and reading skill documentation can remain sandboxed. On another computer, discover its executable paths instead of assuming the installation paths below.
 
 - With `exec_command`, set `sandbox_permissions: "require_escalated"` on the tool-launch call. Use the execution interface's approval mechanism; this skill does not grant permissions or require administrator/UAC elevation. If outside execution is forbidden or denied, report that restriction and stop the dependent search.
 - Launch the whole FileLocator Python preview command outside the sandbox so its `flpsearch.exe` child inherits that environment. Starting Python inside the sandbox and spawning a child does not move the child outside it.
@@ -42,13 +42,25 @@ Check the relevant executable before use. Distinguish a missing file from failur
 
 ### File And Path Search
 
+Use [scripts/listary_search.py](scripts/listary_search.py), a standard-library Python client. It bypasses system proxies and preserves Unicode paths in JSON. Listary must be running with its HTTP API enabled; a running tray app alone does not establish API availability.
+
+```powershell
+& 'J:\Pythonenvs\codex_env\python.exe' -B 'C:\Users\17999\.codex\skills\local-file-search\scripts\listary_search.py' --query 'scssv' --limit 10
+```
+
+Add `--scope 'J:\CENERTECH CX'`, `--extension pdf`, or `--type file` as needed. Scope includes descendants. Default output is at most 10 results and 12,000 characters, with the total match count, `has_more`, and `next_offset`. Paths are never clipped. Check the API/result status as well as the process exit code.
+
+**The API's 100-result maximum is per request, not a total-hit limit.** Continue with the returned `next_offset` and the same query/filters. Do not infer that only 100 matches exist. For exhaustive retrieval, use the streaming iterator described in [Listary reference: Pagination and completeness](references/listary-http-api.md#pagination-and-completeness); it requests successive pages and checks counts and duplicates. A bounded preview is not an exhaustive answer. Narrow broad searches when the user wants a particular file; do not narrow away requested scope for a complete inventory.
+
+Read the [Listary reference](references/listary-http-api.md) before paging, using advanced syntax, or handling an API failure. It covers the request/response fields, iterator, and fallback conditions. Do not turn on the API, change drive coverage, or rebuild indexes during an ordinary search without authorization.
+
+For an Everything fallback:
+
 ```powershell
 & $ES -n 10 -path 'D:\Docs' report 'ext:pdf;docx'
 ```
 
-`-path` includes descendants; `-parent` searches only the immediate folder. Default to `-n 10`; if the cap is reached, say more files may exist or obtain the count using **Safe Recipes**. Use FileLocator for contents, not Everything `content:`. Local ES 1.1.0.30 has no `-json`/`-export-json`.
-
-In the [Everything reference](references/voidtools-everything-cli-quick-reference.md), follow **Setup And Recovery** if the executable is missing or returns exit code 8. Before adding query operators, read **Search Syntax**; before sorting/counting/paging, read **Safe Recipes**; before parsing/exporting, read **Return Model**; before GUI actions, read **Everything.exe**.
+Read the [Everything reference](references/voidtools-everything-cli-quick-reference.md) for **Setup And Recovery**, **Search Syntax**, **Safe Recipes**, and **Return Model** as needed. Preserve the intended scope and filters when translating queries. Everything supports larger batches, but continue to bound agent-facing output and verify its index covers the requested location. Use FileLocator for contents, not Everything `content:`.
 
 ### File Content Search
 
@@ -83,11 +95,12 @@ After each search:
 1. Check exit status and reported completion/errors. If the execution tool returns a running session, continue collecting its output; a wait interval ending or no early output does not prove the search tool is unavailable. The FileLocator preview prints its JSON after the search finishes. Label interrupted or partially failed results as incomplete. For FileLocator, exit code 0 alone is insufficient; use `-ofr:errors` when failures need diagnosis.
 2. Check echoed scope/filters and searched-item counts when reported. If zero files were searched, verify location and filters; report "no eligible files searched" when valid, not absence of text from unsearched files.
 3. Check returned paths against the requested scope. For content claims, verify actual matching body lines; label unverifiable hits as candidates.
-4. If an index misses known/current content or is stale, follow the **Indexed Search** fallback to search the requested folder directly, preserving text intent and filters. If no folder is known, ask for it. For index-only requests, report the limitation instead. Do not update/rebuild unless requested.
+4. For filename/path searches, cross-check suspect or missing results with the other tool while preserving scope. Indexes may cover different folders; inspect actual candidate paths before claiming files are absent. Do not treat fallback results as a guaranteed superset.
+5. If a document-content index misses known/current content or is stale, follow the **Indexed Search** fallback to search the requested folder directly, preserving text intent and filters. If no folder is known, ask for it. For index-only requests, report the limitation instead. Do not update/rebuild unless requested.
 
 ## Return Results
 
-State the search mode and index/folder searched. Return useful paths with matching passages when searching contents. Distinguish a limited preview from an incomplete search; report omissions and never treat the first files as relevance-ranked or exhaustive. `-ol N` limits matching lines reported **per file**, not files searched or total results.
+State the search mode and index/folder searched. Return useful paths with matching passages when searching contents. Distinguish a limited preview from an incomplete search; report omissions and never treat a preview as exhaustive. Listary returns score-ordered candidates; ranking does not establish content relevance. Everything and FileLocator previews are not relevance-ranked by default. `-ol N` limits matching lines reported **per file**, not files searched or total results.
 
 Answer from the returned passages when sufficient. For missing context, narrow the search to selected files and adjust the preview limits, or use a document reader when full text, tables, or layout are required. Omitted results are not retained after the helper exits, so further retrieval requires another search. Do not silently stop at the preview when the user requested exhaustive results.
 

@@ -2,7 +2,7 @@
 
 Install this skill and the search tools first. Locate that computer's `es.exe`, `flpsearch.exe`, and Python executable; the paths elsewhere in this skill describe the original installation and may differ. Use those discovered paths for searches and setup.
 
-The skill requests outside-sandbox execution even without persistent rules. To save approval for the two search entry points, use `scripts/configure_execution_rules.py` from the installed skill. Its default mode prints rules without changing files. It derives the preview-helper path from its own installation, validates the supplied files, and quotes paths for the rules format.
+The skill requests outside-sandbox execution even without persistent rules. The existing rule generator covers the Everything and FileLocator entry points, not the Listary helper. Use the normal outside-sandbox execution mechanism for Listary; adding it as the preferred tool does not change saved approvals. To save approval for those two entry points, use `scripts/configure_execution_rules.py` from the installed skill. Its default mode prints rules without changing files. It derives the preview-helper path from its own installation, validates the supplied files, and quotes paths for the rules format.
 
 For example, after changing the paths to match the new computer:
 
